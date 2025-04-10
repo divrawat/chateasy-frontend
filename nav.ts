@@ -4,4 +4,5 @@ export type RootStackParamList = {
     SignUp: undefined;
     Login: undefined;
     DashBoard: undefined;
+    ChatScreen: { userId: string, userName: string, userPhoto: string };
 };

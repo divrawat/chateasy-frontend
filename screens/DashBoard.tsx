@@ -9,7 +9,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
-import ChatsScreen from "./ChatScreen";
+import ChatsScreen from "./UsersScreen";
 import GroupsScreen from "./GroupsScreen";
 import FriendRequestsScreen from "./FriendRequestsScreen";
 import SettingsScreen from "./SettingsScreen";

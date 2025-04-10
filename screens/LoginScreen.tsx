@@ -24,7 +24,12 @@ const LoginScreen = () => {
 
         try {
             await loginOTP(phone);
-            setOtpSent(true);
+            const fetchedData: any = await verifyOtp(phone, otp);
+            if (fetchedData) {
+                setUser(fetchedData);
+                navigation.replace("DashBoard");
+            }
+            // setOtpSent(true);
         } catch (error) {
             console.log("Error sending OTP:", error);
         }
@@ -54,7 +59,7 @@ const LoginScreen = () => {
     return (
         <AuthLayout>
             <View style={styles.container}>
-                {!otpSent ? (
+                {/* {!otpSent ? (
                     <>
                         <Text style={styles.label}>Enter Phone Number:</Text>
                         <TextInput
@@ -86,7 +91,19 @@ const LoginScreen = () => {
                             <Text style={styles.buttonText}>Verify OTP</Text>
                         </TouchableOpacity>
                     </>
-                )}
+                )} */}
+
+                <Text style={styles.label}>Enter Phone Number:</Text>
+                <TextInput
+                    style={styles.input}
+                    keyboardType="phone-pad"
+                    placeholder="Enter your phone number"
+                    value={phone}
+                    onChangeText={setPhone}
+                />
+                <TouchableOpacity style={styles.button} onPress={handleSendOtp}>
+                    <Text style={styles.buttonText}>Send OTP</Text>
+                </TouchableOpacity>
             </View>
         </AuthLayout>
     );

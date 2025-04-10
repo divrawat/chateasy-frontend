@@ -1,7 +1,10 @@
 import React, { createContext, useState, useEffect, ReactNode, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { fetchUser } from "@/actions/user";
 
 interface Friend {
+    lastMessage: any;
+    lastMessageTime: any;
     _id: string;
     name: string;
     email: string;
@@ -20,6 +23,7 @@ interface User {
     _id: string;
     name?: string;
     phone?: string;
+    description?: string;
     photo?: string;
     email?: string;
     friends: Friend[];
@@ -52,7 +56,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
-    // ✅ Load user only when the app starts (if stored in AsyncStorage)
+
+
     useEffect(() => {
         const loadUser = async () => {
             try {
@@ -70,7 +75,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         loadUser();
     });
 
-    // ✅ Memoize context value to prevent unnecessary re-renders
     const contextValue = useMemo(() => ({ user, setUser, loading }), [user, loading]);
 
     return <UserContext.Provider value={contextValue}>{children}</UserContext.Provider>;

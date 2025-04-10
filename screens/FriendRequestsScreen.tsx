@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from "react";
 import { View, Text, TextInput, Button, ActivityIndicator, FlatList, StyleSheet, Image, TouchableOpacity } from "react-native";
-import { searchUsersByPhone, sendFriendRequest, handleFriendRequest, fetchUser, UnFriendRequest, GetAllFriendRequests } from "@/actions/user";
+import { searchUsersByPhone, sendFriendRequest, handleFriendRequest, UnFriendRequest, GetAllFriendRequests } from "@/actions/user";
 import { UserContext } from "@/context/Usercontext";
 import { FontAwesome } from "@expo/vector-icons";
 
@@ -43,8 +43,7 @@ const FriendRequestsScreen: React.FC = () => {
         setLoading(true);
         setError("");
 
-        const data = await searchUsersByPhone(phone, pageNum);
-
+        const data = await searchUsersByPhone(phone, user?.user._id, pageNum);
         if (data?.users?.length) {
             setUsers(data.users);
 
@@ -97,7 +96,11 @@ const FriendRequestsScreen: React.FC = () => {
     const getFriendRequests = async () => {
         const response: any = await GetAllFriendRequests(user?.user?._id);
         if (response.friendRequests) {
+            // console.log(response.friendRequests);
+
             setfriendrequests(response.friendRequests);
+
+
         } else {
             alert("Failed to get Friend Requests.");
         }
@@ -109,18 +112,26 @@ const FriendRequestsScreen: React.FC = () => {
 
     const handleFriendRequests = async (senderId: string, action: "accept" | "reject") => {
         if (!user) { alert("User not found!"); return; }
-
         const response = await handleFriendRequest(user?.user?._id, senderId, action);
-
         if (response.message) {
-            // console.log(response);
-
             if (action === "accept") {
                 alert("Friend request accepted!");
                 getFriendRequests();
 
+                const acceptedFriend = friendrequests.find(req => req.sender._id === senderId);
+
+                if (acceptedFriend) {
+                    setUser((prev: any) => ({
+                        ...prev,
+                        friends: [...prev.friends, acceptedFriend.sender],
+                    }));
+                }
+                // console.log(user);
+
+
             } else {
                 alert("Friend request rejected!");
+                getFriendRequests();
             }
         } else {
             alert("Something went wrong!");
@@ -167,10 +178,11 @@ const FriendRequestsScreen: React.FC = () => {
                 keyExtractor={(item) => item._id}
                 renderItem={({ item }) => {
 
+
                     const isFriend = user?.friends?.some(friend => friend._id === item._id);
 
                     const requestSent = item?.friendRequests?.some(
-                        (request: any) => request.sender?._id === user?._id
+                        (request: any) => request.sender?._id === user?.user._id
                     );
 
 
@@ -230,16 +242,15 @@ const FriendRequestsScreen: React.FC = () => {
 
 
 
-
                                         <View style={styles.buttonContainer}>
                                             <TouchableOpacity style={styles.acceptButton}
-                                                onPress={() => handleFriendRequests(item._id, "accept")}
+                                                onPress={() => handleFriendRequests(item.sender._id, "accept")}
                                             >
                                                 <Text style={styles.buttonText}>Accept</Text>
                                             </TouchableOpacity>
 
                                             <TouchableOpacity style={styles.rejectButton}
-                                                onPress={() => handleFriendRequests(item._id, "reject")}
+                                                onPress={() => handleFriendRequests(item.sender._id, "reject")}
                                             >
                                                 <Text style={styles.buttonText}>Reject</Text>
                                             </TouchableOpacity>
