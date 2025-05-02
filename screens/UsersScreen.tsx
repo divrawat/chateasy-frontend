@@ -6,30 +6,16 @@ import { UserContext } from "@/context/Usercontext";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@/nav";
+import socket from "../socket";
 
 
 const UsersScreen = () => {
 
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-    const [friends, setfriends] = useState<any>();
-
     const userContext = useContext(UserContext);
     const { user, setUser, loading: userLoading } = userContext;
 
-
-    const getFriends = async () => {
-        const response: any = await GetAllFriends(user?.user?._id);
-        if (response.friends) {
-            setfriends(response.friends)
-        } else {
-            alert("Failed to get Friend Requests.");
-        }
-    };
-
-
-
-    useEffect(() => { getFriends(); }, [])
 
     const formatTime = (isoString: string): string => {
         const date = new Date(isoString);
@@ -44,8 +30,11 @@ const UsersScreen = () => {
     };
 
 
+    const filteredFriends = user?.friends?.filter(
+        (friend: any) => !friend?.blockedUsers?.includes(user?.user._id)
+    );
 
-    // console.log(user);
+
 
 
 
@@ -54,7 +43,7 @@ const UsersScreen = () => {
     return (
 
         <FlatList
-            data={user?.friends}
+            data={filteredFriends}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => (
 
@@ -72,6 +61,7 @@ const UsersScreen = () => {
                             {item?.lastMessage &&
                                 <Text style={styles.message}>
                                     {Array.isArray(item?.lastMessage) ? "document" : item?.lastMessage}
+                                    {/* {item?.lastMessage} */}
                                 </Text>
                             }
 

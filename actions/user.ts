@@ -20,9 +20,9 @@ export const sendOtp = async (email: string, phone: string): Promise<void> => {
 
 export const loginOTP = async (phone: string): Promise<void> => {
     try {
-        // const response = await axios.post<{ success: boolean; message?: string }>(`${BACKEND}/send-otp`, { phone });
+        const response = await axios.post<{ success: boolean; message?: string }>(`${BACKEND}/send-otp`, { phone });
 
-        const response = true;
+        // const response = true;
 
         // if (response.data.message) {
         if (response) {
@@ -46,7 +46,7 @@ export const verifyOtp = async (phone: string, otp: string): Promise<Object | nu
 
             if (fetchedData) { AsyncStorage.setItem("user", fetchedData); }
 
-            Alert.alert("Success", "OTP Verified! User logged in.");
+            // Alert.alert("Success", "OTP Verified! User logged in.");
             return fetchedData;
         } else {
             Alert.alert("Error", "Something went wrong.");
@@ -60,18 +60,24 @@ export const verifyOtp = async (phone: string, otp: string): Promise<Object | nu
 */
 
 
-
 export const verifyOtp = async (phone: string, otp: string): Promise<Object | null> => {
     try {
 
-        // 67e2622ef1e6d2957c8d1d39 Divaynshu 2
+        var id;
+
+        if (phone == '4') { id = '67e2be9fac49d7152c5f3d03' }
+        else {
+            id = '67e2622ef1e6d2957c8d1d39'
+        }
+
+        // 67e2622ef1e6d2957c8d1d39 Divaynshu 2 
         // 67e2be76ac49d7152c5f3d01 Divyanshu 3
-        // 67e2be9fac49d7152c5f3d03 Divyanshu 4
+        // 67e2be9fac49d7152c5f3d03 Divyanshu 4 --
         // 67dfb7bfbf5e4df963e410f7 Divyanshu 5
 
-        const fetchedData: any = await fetchUser('67e2be9fac49d7152c5f3d03');
+        const fetchedData: any = await fetchUser(id);
         if (fetchedData) { AsyncStorage.setItem("user", fetchedData); }
-        Alert.alert("Success", "OTP Verified! User logged in.");
+        // Alert.alert("Success", "OTP Verified! User logged in.");
         return fetchedData;
 
     } catch (error) {
@@ -82,6 +88,16 @@ export const verifyOtp = async (phone: string, otp: string): Promise<Object | nu
 
 
 
+export const refreshUser = async (userId: string): Promise<Object | null> => {
+    try {
+        const fetchedData: any = await fetchUser(userId);
+        if (fetchedData) { AsyncStorage.setItem("user", fetchedData); }
+        return fetchedData;
+    } catch (error) {
+        Alert.alert("Error", "Failed to verify OTP.");
+        return null;
+    }
+};
 
 
 
@@ -187,7 +203,6 @@ export const handleFriendRequest = async (userId: string, senderId: string, acti
 
     // console.log(action, userId, senderId);
 
-
     if (!userId || !senderId || !action) return console.error("User ID or Sender ID or action is missing!");
     const sendersId = senderId;
 
@@ -264,3 +279,224 @@ export const SendMessage = async (formdata: Object) => {
         console.error("Request failed:", error);
     }
 }
+
+
+export const createGroup = async (formdata: any) => {
+    try {
+        const response = await fetch(`${BACKEND}/group/create`, {
+            method: 'POST',
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+            body: formdata
+        });
+        return await response.json();
+    } catch (error) {
+        console.error("Request failed:", error);
+    }
+};
+
+
+
+
+export const AddMembers = async (formData: FormData) => {
+    try {
+        const response = await fetch(`${BACKEND}/group/add-members`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+            body: formData,
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('AddMembers failed:', error);
+        throw error;
+    }
+};
+
+export const RemoveMembers = async (formData: FormData) => {
+    try {
+        const response = await fetch(`${BACKEND}/group/remove-members`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+            body: formData,
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('RemoveMembers failed:', error);
+        throw error;
+    }
+};
+
+
+
+
+export const AddAdmins = async (formData: FormData) => {
+    try {
+        const response = await fetch(`${BACKEND}/group/add-admins`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+            body: formData,
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('AddAdmins failed:', error);
+        throw error;
+    }
+};
+
+export const RemoveAdmins = async (formData: FormData) => {
+    try {
+        const response = await fetch(`${BACKEND}/group/remove-admins`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+            body: formData,
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('RemoveMembers failed:', error);
+        throw error;
+    }
+};
+
+
+
+export const DeleteGroup = async (groupId: string, userId: string) => {
+    try {
+
+        const response = await fetch(`${BACKEND}/group/delete-group`, {
+            method: 'DELETE',
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ groupId, userId, }),
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('Group Deletion failed:', error);
+        throw error;
+    }
+};
+
+
+export const LeaveGroup = async (groupId: string, userId: string) => {
+    try {
+
+        const response = await fetch(`${BACKEND}/group/leave-group`, {
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ groupId, userId, }),
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('Group Deletion failed:', error);
+        throw error;
+    }
+};
+
+
+export const BlockUser = async (userId: string, blockedby: string) => {
+    try {
+
+        const response = await fetch(`${BACKEND}/block-friend`, {
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ blockedby, userId, }),
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('Blocking Friend failed:', error);
+        throw error;
+    }
+};
+
+
+export const UnBlockUser = async (userId: string, blockedby: string) => {
+    try {
+
+        const response = await fetch(`${BACKEND}/unblock-friend`, {
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ blockedby, userId, }),
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('Blocking Friend failed:', error);
+        throw error;
+    }
+};
+
+
+export const DeleteMessage = async (messageId: any, sender: any) => {
+    try {
+        const response = await fetch(`${BACKEND}/delete-message`, {
+            method: 'DELETE',
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ messageId, sender }),
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('Blocking Friend failed:', error);
+        throw error;
+    }
+};
+
+
+
+
+
+export const MuteUser = async (userTobeMuted: any, userwhohavemuted: any) => {
+    try {
+        const response = await fetch(`${BACKEND}/mute-friend`, {
+            method: 'POST',
+            headers: { "Content-Type": "application/json", },
+            body: JSON.stringify({ userTobeMuted, userwhohavemuted }),
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('Muted User:', error);
+        throw error;
+    }
+};
+
+
+
+export const UnMuteUser = async (userTounbeunMuted: any, userwhohavemuted: any) => {
+    try {
+        const response = await fetch(`${BACKEND}/unmute-friend`, {
+            method: 'POST',
+            headers: { "Content-Type": "application/json", },
+            body: JSON.stringify({ userTounbeunMuted, userwhohavemuted }),
+        });
+
+        return await response.json();
+    } catch (error) {
+        console.error('Muted User:', error);
+        throw error;
+    }
+};

@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Modal, ScrollView, Linking, Pressable } from "react-native";
+import React, { useState, useEffect, useContext, useRef, useLayoutEffect } from "react";
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Modal, ScrollView, Linking, Pressable } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import { UserContext } from "@/context/Usercontext";
 import { SendMessage, GetUserMessages } from "@/actions/user";
 import DoubleTickBlueIcon from './DoubleTickBlueIcon'
 import DoubleTickGreyIcon from './DoubleTickGreyIcon'
-import io from "socket.io-client";
 import * as DocumentPicker from 'expo-document-picker';
 import { BACKEND } from "@/config";
-import { registerForPushNotificationsAsync } from './Notification';
 import { Image } from 'expo-image';
-
-const socket = io("55");
+import { BlockUser, UnBlockUser, DeleteMessage, MuteUser, refreshUser, UnMuteUser } from "@/actions/user";
+import socket from "../socket";
+import { useNavigation } from '@react-navigation/native';
 
 type Message = {
+    isRead: any;
     name: any;
     messageContent: any;
     _id: string;
@@ -24,106 +24,272 @@ type Message = {
 };
 
 
-
-
 const ChatScreen = ({ route }: { route: any }) => {
+
+    const navigation = useNavigation();
+
+    const [showOptions, setShowOptions] = useState(false);
 
 
     const { user, setUser } = useContext(UserContext);
     const { userId, userName, groupId } = route.params;
 
     const [selectedImage, setSelectedImage] = useState(null);
-
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [modalVisible, setModalVisible] = useState(false);
-    const [docMessage, setDocMessage] = useState("");
     const [pickedDocument, setPickedDocument] = useState<any>(null);
 
     const flatListRef = useRef<FlatList>(null);
 
+    const fetchMessages = async () => {
 
-    useEffect(() => {
-        registerForPushNotificationsAsync(user?.user._id);
-    }, []);
+        const fetchedMessages = await GetUserMessages(user?.user._id, userId, groupId);
 
+        if (fetchedMessages) {
+            const updatedMessages = fetchedMessages.map((msg: { isDeleted: any; }) => {
+                if (msg?.isDeleted) {
+                    return {
+                        ...msg,
+                        messageContent: "Message is deleted",
+                        mediaUrl: null
+                    };
+                }
+                return msg;
+            });
 
+            setMessages(updatedMessages);
 
-    // Fetch messages on mount
-    useEffect(() => {
-        const fetchMessages = async () => {
-            const fetchedMessages = await GetUserMessages(user?.user._id, userId, groupId);
-            if (fetchedMessages) {
-                setMessages(fetchedMessages);
-
-                scrollToBottom();
-            }
-        };
-
-        fetchMessages();
-
-        // Listen for incoming messages
-        socket.on("loadMessages", (newMessages) => {
-            setMessages((prev) => [...prev, ...newMessages]);
-            scrollToBottom(); // Scroll to latest message
-        });
-
-        return () => {
-            socket.off("loadMessages");
-        };
-    }, [userId, groupId]);
-
-    // Scroll to bottom function
-    const scrollToBottom = () => {
-        setTimeout(() => {
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-        }, 100);
-    };
-
-
-    /*
-    const handleSendMessage = async () => {
-        if (!newMessage.trim()) return;
-
-        // Create a temporary message to display instantly
-        const tempId = `temp-${Date.now()}`;
-        const tempMessage: Message = {
-            _id: tempId,
-            messageContent: newMessage,
-            createdAt: new Date().toISOString(),
-            sender: user?.user._id,
-            files: undefined,
-            type: undefined,
-            name: undefined
-        };
-
-        setMessages((prev) => [...prev, tempMessage]); // Append to messages
-        setNewMessage(""); // Clear input
-        scrollToBottom(); // Scroll down after sending message
-
-        const formData = {
-            sender: user?.user._id,
-            receiver: userId,
-            group: groupId || null,
-            type: "text",
-            messageContent: newMessage,
-        };
-
-        try {
-            const response = await SendMessage(formData);
-            if (response && response._id) {
-                setMessages((prev) =>
-                    prev.map((msg) => (msg._id === tempId ? { ...msg, _id: response._id } : msg))
-                );
-                socket.emit("sendMessage", response);
-                scrollToBottom(); // Ensure scrolling after message is sent
-            }
-        } catch (error) {
-            console.error("Error sending message:", error);
-            setMessages((prev) => prev.filter((msg) => msg._id !== tempId));
+            scrollToBottom();
         }
     };
-*/
+
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <TouchableOpacity onPress={() => setShowOptions(prev => !prev)}>
+                    <Text style={styles.dots}>⋮</Text>
+                </TouchableOpacity>
+            ),
+        });
+    }, [navigation]);
+
+
+    const markMessagesAsRead = async () => {
+
+        try {
+            await fetch(`${BACKEND}/mark-read`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    senderId: userId,
+                    receiverId: user?.user._id,
+                    groupId: groupId || null
+                }),
+            });
+
+        } catch (error) {
+            console.error("Failed to mark messages as read:", error);
+        }
+    };
+
+
+    const markSingleMessageAsRead = async (messageId: any) => {
+        try {
+            await fetch(`${BACKEND}/markMessageAsRead`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    messageId: messageId,
+                }),
+            });
+        } catch (error) {
+            console.error('Error marking message as read:', error);
+        }
+    };
+
+
+    const markMultipleMessagesAsRead = async (messageIds: string[]) => {
+        try {
+            await fetch(`${BACKEND}/markMultipleMessagesAsRead`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ messageIds, senderId: userId, receiverId: user?.user._id, }),
+            });
+        } catch (error) {
+            console.error('Error marking message as read:', error);
+        }
+    };
+
+    const fetchMessages2 = async () => {
+
+        const fetchedMessages = await GetUserMessages(user?.user._id, userId, groupId);
+        if (fetchedMessages) {
+            setMessages(fetchedMessages);
+
+            const unreadMessageIds = fetchedMessages
+                .filter((msg: any) => msg.sender !== user?.user._id && !msg.isRead).map((msg: any) => msg._id);
+
+            if (unreadMessageIds.length > 0) {
+                try {
+                    await markMultipleMessagesAsRead(unreadMessageIds);
+                    setMessages((prevMessages) =>
+                        prevMessages.map((msg) =>
+                            unreadMessageIds.includes(msg._id) ? { ...msg, isRead: true } : msg
+                        )
+                    );
+                } catch (error) {
+                    console.error("Error marking messages as read:", error);
+                }
+            }
+        }
+    };
+
+
+
+
+    const friend = user?.friends?.find(friend => friend._id === userId);
+    const hasMutedMe = friend?.mutedUsers?.includes(user?.user?._id);
+
+
+    useEffect(() => {
+
+        // markMessagesAsRead();
+        fetchMessages2();
+
+        // if (!hasMutedMe) { fetchMessages2(); }
+        // if (hasMutedMe) { fetchMessages() }
+
+
+
+        const roomId = `chat_${[user?.user._id, userId].sort().join('_')}`;
+        socket.emit("joinRoom", roomId);
+
+        const handleMessage = (message: any) => {
+            if (message.sender === user?.user._id) return;
+            if (message.roomId !== roomId) return;
+            setMessages((prev) => [...prev, message]);
+            markSingleMessageAsRead(message._id);
+        };
+
+        const MarkMultipleMessagesRead = (result: any) => {
+            // console.log('000000000');
+
+            setMessages((prevMessages) =>
+                prevMessages.map((msg) => {
+                    if (result && result.ids && result.ids.includes(msg._id)) {
+                        return { ...msg, isRead: true };
+                    }
+                    return msg;
+                })
+            );
+        };
+
+
+        const handleMessagesRead = (updatedMessage: any) => {
+            setMessages((prevMessages) =>
+                prevMessages.map((msg) => {
+                    if (updatedMessage?._id === msg._id) {
+                        return { ...msg, isRead: true };
+                    }
+                    return msg;
+                })
+            );
+        };
+
+
+
+        const handleMuteUser = (data: any) => {
+            const { userTobeMuted, userwhohavemuted } = data;
+
+            if (user?.user?._id === userwhohavemuted) { return; }
+
+            setUser((prevUser) => {
+                if (!prevUser) return prevUser;
+
+                const updatedFriends = prevUser.friends?.map((friend: any) => {
+                    if (friend._id === userTobeMuted) {
+                        if (!friend.mutedUsers.includes(prevUser.user._id)) {
+
+                            friend.mutedUsers = [...friend.mutedUsers, prevUser.user._id];
+                        }
+                    }
+                    return friend;
+                });
+
+                const updatedMutedUsers = prevUser.mutedUsers.includes(userTobeMuted)
+                    ? prevUser.mutedUsers
+                    : [...prevUser.mutedUsers, userTobeMuted];
+
+                return {
+                    ...prevUser,
+                    friends: updatedFriends,
+                    mutedUsers: updatedMutedUsers,
+                };
+            });
+        };
+
+
+
+        const handleUnMuteUser = (data: any) => {
+            const { userTobeUnMuted } = data;
+
+            setUser((prevUser) => {
+                if (!prevUser) return prevUser;
+
+                const updatedFriends = prevUser?.friends?.map((friend: any) => {
+                    if (friend._id === userTobeUnMuted) {
+                        friend.mutedUsers = friend.mutedUsers.filter(
+                            (mutedUserId: string) => mutedUserId !== prevUser._id
+                        );
+                    }
+                    return friend;
+                });
+
+                const updatedMutedUsers = prevUser.mutedUsers.filter(
+                    (mutedUserId: string) => mutedUserId !== userTobeUnMuted
+                );
+
+
+                return {
+                    ...prevUser,
+                    friends: updatedFriends,
+                    mutedUsers: updatedMutedUsers,
+                };
+            });
+        };
+
+        socket.on("receiveMessage", handleMessage);
+        socket.on("Mute", handleMuteUser);
+        socket.on("UnMute", handleUnMuteUser);
+
+        // if (!hasMutedMe) {
+
+        // }
+
+        socket.on("markMultipleMessagesAsRead", MarkMultipleMessagesRead);
+        socket.on("messageMarkedAsRead", handleMessagesRead);
+
+
+
+        return () => {
+            socket.off("receiveMessage", handleMessage);
+            socket.off("markMultipleMessagesAsRead", MarkMultipleMessagesRead);
+            socket.off("messageMarkedAsRead", handleMessagesRead);
+            socket.off("Mute", handleMuteUser);
+            socket.off("UnMute", handleUnMuteUser);
+        };
+    }, [user?.user._id]);
+
+
+    const scrollToBottom = () => { setTimeout(() => { flatListRef.current?.scrollToOffset({ offset: 0, animated: true }); }, 100); };
+
 
     const handleSendMessage = async () => {
         if (!newMessage.trim()) return;
@@ -136,6 +302,7 @@ const ChatScreen = ({ route }: { route: any }) => {
             sender: user?.user._id,
             files: undefined,
             type: "text",
+            isRead: false,
             name: undefined
         };
 
@@ -153,15 +320,11 @@ const ChatScreen = ({ route }: { route: any }) => {
 
         try {
             const response = await SendMessage(formData);
-            // console.log(response);
 
             if (response && response.message._id) {
 
                 setMessages((prev) => prev.map((msg) => (msg._id === tempId ? { ...msg, _id: response.message._id } : msg)));
-                // socket.emit("sendMessage", response);
                 scrollToBottom();
-
-
 
                 setUser((prevUser) => {
 
@@ -192,9 +355,6 @@ const ChatScreen = ({ route }: { route: any }) => {
         }
     };
 
-
-
-
     const formatTime = (isoString: string): string => {
         const date = new Date(isoString);
         let hours = date.getHours();
@@ -208,153 +368,78 @@ const ChatScreen = ({ route }: { route: any }) => {
     };
 
 
+    const block = async (userId: string, blockedby: string) => {
 
-    const markMessagesAsRead = async () => {
+        const response = await BlockUser(userId, blockedby);
+        if (response.message) {
+            setUser(prev => {
+                if (!prev) return prev;
+                return { ...prev, blockedUsers: [...(prev.blockedUsers || []), userId] };
+            });
+
+        }
+        else {
+            console.error("Failed to block user:", response.error);
+        }
+    }
+
+
+    const BlueTick = async (userTobeMuted: string, userwhohavemuted: string) => {
         try {
-            await fetch(`${BACKEND}/mark-read`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    senderId: userId,
-                    receiverId: user?.user._id,
-                    groupId: groupId || null
-                }),
-            });
+            const response = await MuteUser(userTobeMuted, userwhohavemuted);
 
+            if (response?.success) {
 
-            socket.emit("readMessages", {
-                senderId: userId,
-                receiverId: user?.user._id,
-                groupId
-            });
+                const fetchedData: any = await refreshUser(user?.user._id);
+                if (fetchedData) { setUser(fetchedData); }
 
+                Alert.alert('User Muted Successfully')
+            } else {
+                console.error(response.error);
+            }
         } catch (error) {
-            console.error("Failed to mark messages as read:", error);
+            console.error("Error in BlueTick function:", error);
         }
     };
 
-    useEffect(() => {
-        const fetchMessages = async () => {
-            const fetchedMessages = await GetUserMessages(user?.user._id, userId, groupId);
-            if (fetchedMessages) {
-                setMessages(fetchedMessages);
-                scrollToBottom();
+
+    const ShowBlueTick = async (userTounbeunMuted: string, userwhohavemuted: string) => {
+        try {
+            const response = await UnMuteUser(userTounbeunMuted, userwhohavemuted);
+
+            if (response?.success) {
+
+                const fetchedData: any = await refreshUser(user?.user._id);
+                if (fetchedData) { setUser(fetchedData); }
+
+                Alert.alert('User Muted Successfully')
+            } else {
+                console.error(response.error);
             }
-
-            await markMessagesAsRead();
-        };
-
-        fetchMessages();
-
-        socket.on("loadMessages", (newMessages) => {
-            setMessages((prev) => [...prev, ...newMessages]);
-            scrollToBottom();
-        });
-
-        socket.on("readMessages", ({ readMessageIds }) => {
-            setMessages((prev) =>
-                prev.map((msg) =>
-                    readMessageIds.includes(msg._id) ? { ...msg, isRead: true } : msg
-                )
-            );
-        });
-
-        return () => {
-            socket.off("loadMessages");
-        };
-    }, [userId, groupId]);
+        } catch (error) {
+            console.error("Error in BlueTick function:", error);
+        }
+    };
 
 
+    const isUserBlocked = user?.blockedUsers?.map(id => id).includes(userId);
 
+    const handleUnblock = async (userId: string, blockedby: string) => {
 
+        const response = await UnBlockUser(userId, blockedby);
 
-    /*
-        const sendDocument = async () => {
-            if (!pickedDocument || pickedDocument.length === 0) return;
-    
-            const tempMessages = pickedDocument.map((doc: any) => ({
-                _id: Date.now() + Math.random(),
-                type: 'file',
-                sender: user?.user?._id,
-                name: doc.name,
-                createdAt: new Date().toISOString(),
-                uri: doc.uri,
-                mimeType: doc.type,
-                status: "uploading",
-                isTemp: true,
-            }));
-    
-            setMessages(prev => [...prev, ...tempMessages]);
-            setModalVisible(false);
-    
-            try {
-                const formData = new FormData();
-    
-                pickedDocument.forEach((doc: any) => {
-                    formData.append("file", {
-                        uri: doc.uri,
-                        name: doc.name,
-                        type: doc.type || "application/octet-stream",
-                    } as any);
-                });
-    
-                formData.append("sender", user?.user?._id || "");
-                formData.append("type", "file");
-                formData.append("receiver", userId || "");
-                formData.append("messageContent", '00');
-                formData.append("group", '');
-    
-                const response = await fetch(`${BACKEND}/send`, {
-                    method: "POST",
-                    body: formData,
-                    headers: {
-                        Accept: "application/json",
-                    },
-                });
-    
-                const result = await response.json();
-    
-    
-                if (result?.success && Array.isArray(result?.message?.messageContent)) {
-                    const uploadedUrls = result?.message?.messageContent;
-    
-                    setMessages(prev =>
-                        prev.map(msg => {
-                            const index = pickedDocument.findIndex((doc: { name: any; }) => doc.name === msg?.name);
-                            const matchedUrl = uploadedUrls[index];
-    
-                            if (index !== -1 && matchedUrl) {
-                                return {
-                                    ...msg,
-                                    status: "sent",
-                                    isTemp: false,
-                                    serverUrl: matchedUrl,
-                                };
-                            }
-    
-                            return msg;
-                        })
-                    );
-                } else {
-                    throw new Error("Upload failed or invalid response from server.");
-                }
-            } catch (err) {
-                console.error("Sending document failed:", err);
-                setMessages(prev =>
-                    prev.map(msg =>
-                        tempMessages.find((temp: { _id: string; }) => temp._id === msg._id)
-                            ? { ...msg, status: "failed" }
-                            : msg
-                    )
-                );
-            } finally {
-                setPickedDocument([]);
-            }
-        };
+        if (response.message === "User unblocked successfully.") {
+            setUser(prev => {
+                if (!prev) return prev;
+                return { ...prev, blockedUsers: prev.blockedUsers.filter(id => id !== userId), };
+            });
+            setShowOptions(false);
+        }
+        else {
+            console.error("Failed to block user:", response.error);
+        }
+    };
 
-    */
 
 
 
@@ -527,15 +612,42 @@ const ChatScreen = ({ route }: { route: any }) => {
         }
     };
 
+    const deleteMessage = async (messageId: any, sender: any) => {
+
+        const response = await DeleteMessage(messageId, sender);
+        if (response.message) {
+            fetchMessages();
+        }
+
+        else {
+            Alert.alert("Error", 'You can only delete your message');
+        }
+    };
 
 
 
+    const handleLongPress = (message: any, sender: any) => {
+        const displayText = typeof message?.messageContent === 'string' ? message.messageContent : "Document";
+
+        Alert.alert(
+            "Delete Message",
+            `Do you want to delete " ${displayText} "`,
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Delete",
+                    onPress: () => deleteMessage(message._id, sender)
+                }
+            ],
+            { cancelable: true }
+        );
+    }
 
 
-
-
-
-
+    const isUserMuted = user?.mutedUsers?.some(mutedUser => mutedUser._id === userId);
 
 
     return (
@@ -544,6 +656,31 @@ const ChatScreen = ({ route }: { route: any }) => {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
         >
+
+
+            <View style={styles.container} >
+                {showOptions && !isUserBlocked && (
+                    <View style={styles.optionsBox}>
+
+                        <TouchableOpacity onPress={() => block(userId, user?.user._id)}>
+                            <Text style={styles.option}>Block</Text>
+                        </TouchableOpacity>
+
+
+                        {!isUserMuted && <TouchableOpacity onPress={() => BlueTick(userId, user?.user._id)}>
+                            <Text style={styles.option}>Dont Show Blue Tick</Text>
+                        </TouchableOpacity>}
+
+
+                        {isUserMuted && <TouchableOpacity onPress={() => ShowBlueTick(userId, user?.user._id)}>
+                            <Text style={styles.option}>Show Blue Tick</Text>
+                        </TouchableOpacity>}
+
+
+
+                    </View>
+                )}
+            </View>
 
 
             <Modal
@@ -600,105 +737,104 @@ const ChatScreen = ({ route }: { route: any }) => {
 
 
                     return (
-                        <View
-                            style={[
-                                styles.messageItem,
-                                isMyMessage ? styles.myMessage : styles.otherMessage,
-                                { alignSelf: isMyMessage ? "flex-end" : "flex-start" },
-                            ]}
-                        >
+                        <Pressable onLongPress={() => handleLongPress(item, user?.user._id)} delayLongPress={500}>
+                            <View
+                                style={[
+                                    styles.messageItem,
+                                    isMyMessage ? styles.myMessage : styles.otherMessage,
+                                    {
+                                        alignSelf: isMyMessage ? "flex-end" : "flex-start",
+                                    },
+                                ]}
+                            >
 
 
-                            {item.status === "sent" ? (
-                                item?.mimeType?.startsWith('image/') ? (
-                                    <TouchableOpacity onPress={() => setSelectedImage(item.serverUrl)}>
-                                        <Image
-                                            source={{ uri: item.serverUrl }}
-                                            style={{ width: 200, height: 200, borderRadius: 10, marginBottom: 10 }}
-                                        />
-                                    </TouchableOpacity>
-                                ) : item?.mimeType === 'application/pdf' ? (
-                                    <TouchableOpacity onPress={() => Linking.openURL(item.serverUrl)}>
-                                        <View style={{ maxWidth: 250 }}>
-                                            <Text style={{ color: "blue", fontWeight: "bold" }}>
-                                                📕 PDF: {item.name}
-                                            </Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ) : item?.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ? (
-                                    <TouchableOpacity onPress={() => Linking.openURL(item.serverUrl)}>
-                                        <View style={{ maxWidth: 250 }}>
-                                            <Text style={{ color: "blue", fontWeight: "bold" }}>
-                                                📘 DOCX: {item.name}
-                                            </Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ) : (
-                                    <TouchableOpacity onPress={() => Linking.openURL(item.serverUrl)}>
-                                        <View style={{ maxWidth: 250 }}>
-                                            <Text style={{ color: "blue", fontWeight: "bold" }}>
-                                                📄 {item.name}
-                                            </Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                )
-                            ) : item.status === "uploading" && (
-                                <View style={{ maxWidth: 250 }}>
-                                    <Text>Uploading: {item.name}</Text>
-                                    {item?.mimeType?.startsWith('image/') && (
-                                        <Text>(Preview unavailable)</Text>
-                                    )}
-                                </View>
-                            )}
-
-
-
-
-
-
-                            {item.type === "file" ? (
-
-                                <View >
-                                    {item?.messageContent?.map((uri: any, index: any) => (
-                                        <TouchableOpacity key={index} onPress={() => setSelectedImage(uri)}>
+                                {item.status === "sent" ? (
+                                    item?.mimeType?.startsWith('image/') ? (
+                                        <TouchableOpacity onPress={() => setSelectedImage(item.serverUrl)}>
                                             <Image
-                                                source={{ uri }}
+                                                source={{ uri: item.serverUrl }}
                                                 style={{ width: 200, height: 200, borderRadius: 10, marginBottom: 10 }}
                                             />
                                         </TouchableOpacity>
-                                    ))}
-                                </View>
-
-
-
-                            ) : item.type === "document" ? (
-                                <View style={{ maxWidth: 250 }}>
-                                    <Text style={{ color: "blue", fontWeight: "bold" }}>
-                                        📄 {item.name}
-                                    </Text>
-                                </View>
-                            ) : (
-                                <Text style={styles.messageText}>{item?.messageContent}</Text>
-                            )}
-
-
-
-
-
-
-
-
-
-                            <View style={styles.timeAndTicks}>
-                                <Text style={styles.timestamp}>{formatTime(item?.createdAt)} </Text>
-                                {isMyMessage &&
-                                    (item?.isRead ? (
-                                        <DoubleTickBlueIcon size={14} color="blue" />
+                                    ) : item?.mimeType === 'application/pdf' ? (
+                                        <TouchableOpacity onPress={() => Linking.openURL(item.serverUrl)}>
+                                            <View style={{ maxWidth: 250 }}>
+                                                <Text style={{ color: "blue", fontWeight: "bold" }}>
+                                                    📕 PDF: {item.name}
+                                                </Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    ) : item?.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ? (
+                                        <TouchableOpacity onPress={() => Linking.openURL(item.serverUrl)}>
+                                            <View style={{ maxWidth: 250 }}>
+                                                <Text style={{ color: "blue", fontWeight: "bold" }}>
+                                                    📘 DOCX: {item.name}
+                                                </Text>
+                                            </View>
+                                        </TouchableOpacity>
                                     ) : (
-                                        <DoubleTickGreyIcon size={14} color="grey" />
-                                    ))}
+                                        <TouchableOpacity onPress={() => Linking.openURL(item.serverUrl)}>
+                                            <View style={{ maxWidth: 250 }}>
+                                                <Text style={{ color: "blue", fontWeight: "bold" }}>
+                                                    📄 {item.name}
+                                                </Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    )
+                                ) : item.status === "uploading" && (
+                                    <View style={{ maxWidth: 250 }}>
+                                        <Text>Uploading: {item.name}</Text>
+                                        {item?.mimeType?.startsWith('image/') && (
+                                            <Text>(Preview unavailable)</Text>
+                                        )}
+                                    </View>
+                                )}
+
+
+
+
+
+
+                                {item.type === "file" ? (
+
+                                    <View >
+                                        {item?.messageContent?.map((uri: any, index: any) => (
+                                            <TouchableOpacity key={index} onPress={() => setSelectedImage(uri)}>
+                                                <Image
+                                                    source={{ uri }}
+                                                    style={{ width: 200, height: 200, borderRadius: 10, marginBottom: 10 }}
+                                                />
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+
+
+
+                                ) : item.type === "document" ? (
+                                    <View style={{ maxWidth: 250 }}>
+                                        <Text style={{ color: "blue", fontWeight: "bold" }}>
+                                            📄 {item.name}
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    <Text style={styles.messageText}>{item?.messageContent}</Text>
+                                )}
+
+
+
+                                <View style={styles.timeAndTicks}>
+                                    <Text style={styles.timestamp}>{formatTime(item?.createdAt)} </Text>
+                                    {isMyMessage &&
+                                        (item?.isRead && !hasMutedMe ? (
+                                            <DoubleTickBlueIcon size={14} color="blue" />
+                                        ) : (
+                                            <DoubleTickGreyIcon size={14} color="grey" />
+                                        ))}
+
+                                </View>
                             </View>
-                        </View>
+                        </Pressable>
                     );
                 }}
 
@@ -726,7 +862,7 @@ const ChatScreen = ({ route }: { route: any }) => {
             </Modal>
 
 
-            <View style={styles.inputContainer}>
+            {!isUserBlocked && <View style={styles.inputContainer}>
 
                 <TouchableOpacity style={styles.iconButton} onPress={pickDocument}>
                     <FontAwesome name="paperclip" size={24} color="#3B82F6" />
@@ -744,6 +880,15 @@ const ChatScreen = ({ route }: { route: any }) => {
                     <FontAwesome name="paper-plane" size={24} color="white" />
                 </TouchableOpacity>
             </View>
+            }
+
+            {isUserBlocked && (
+                <View style={styles.centeredContainer}>
+                    <TouchableOpacity onPress={() => handleUnblock(userId, user?.user._id)} style={styles.unblockButton}>
+                        <Text style={styles.unblockText}>Unblock User</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
         </KeyboardAvoidingView>
     );
@@ -756,6 +901,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         marginBottom: 5,
         maxWidth: "70%",
+
     },
 
     myMessage: {
@@ -811,10 +957,6 @@ const styles = StyleSheet.create({
         color: "#eee",
     },
 
-
-
-
-
     modalOverlay: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.5)",
@@ -859,9 +1001,51 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         padding: 10,
     },
+    dots: {
+        fontSize: 24,
+        paddingRight: 16,
+    },
 
 
+    optionsBox: {
+        position: 'absolute',
+        zIndex: 10,
+        right: 10,
+        backgroundColor: '#ffff',
+        padding: 14,
+        borderRadius: 6,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+    },
+    option: {
+        paddingVertical: 10,
+        fontSize: 16,
+    },
 
+    centeredContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginVertical: 20,
+    },
+    unblockButton: {
+        backgroundColor: '#FF5252', // red or any visible color
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        elevation: 2, // Android shadow
+        shadowColor: '#000', // iOS shadow
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
+    },
+    unblockText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
 
 });
 

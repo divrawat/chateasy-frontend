@@ -13,12 +13,36 @@ import ChatsScreen from "./UsersScreen";
 import GroupsScreen from "./GroupsScreen";
 import FriendRequestsScreen from "./FriendRequestsScreen";
 import SettingsScreen from "./SettingsScreen";
+import { useEffect } from "react";
+import { useRoute } from "@react-navigation/native";
+
 
 const { width } = Dimensions.get('window');
 
 type TabType = "FRIENDS" | "GROUPS" | "REQUESTS" | "SETTINGS";
 
 const DashBoard: React.FC = () => {
+
+
+  const route = useRoute<any>();
+  const initialTab = route.params?.initialTab;
+
+
+  useEffect(() => {
+    const index = tabs.indexOf(initialTab);
+    if (index !== -1) {
+      setActiveTab(index);
+      scrollViewRef.current?.scrollTo({ x: width * index, animated: false });
+    }
+  }, [initialTab]);
+
+
+
+
+
+
+
+
   const [activeTab, setActiveTab] = useState<number>(0);
   const scrollViewRef = useRef<ScrollView>(null);
 

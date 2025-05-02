@@ -23,12 +23,14 @@ const LoginScreen = () => {
         if (!phone.trim()) { Alert.alert("Error", "Phone number & Email is required."); return; }
 
         try {
-            await loginOTP(phone);
+            // await loginOTP(phone);
+
             const fetchedData: any = await verifyOtp(phone, otp);
             if (fetchedData) {
                 setUser(fetchedData);
                 navigation.replace("DashBoard");
             }
+
             // setOtpSent(true);
         } catch (error) {
             console.log("Error sending OTP:", error);

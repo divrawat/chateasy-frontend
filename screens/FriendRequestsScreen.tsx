@@ -3,7 +3,7 @@ import { View, Text, TextInput, Button, ActivityIndicator, FlatList, StyleSheet,
 import { searchUsersByPhone, sendFriendRequest, handleFriendRequest, UnFriendRequest, GetAllFriendRequests } from "@/actions/user";
 import { UserContext } from "@/context/Usercontext";
 import { FontAwesome } from "@expo/vector-icons";
-
+import socket from "../socket";
 
 interface User {
     friendRequests: any;
@@ -30,8 +30,7 @@ const FriendRequestsScreen: React.FC = () => {
     if (!userContext) { return <ActivityIndicator size="large" color="blue" />; }
 
     const { user, setUser, loading: userLoading } = userContext;
-    if (user) {
-        // console.log(JSON.stringify(user, null, 2));
+    if (user) { // console.log(JSON.stringify(user, null, 2));
     }
 
     const handleSearch = async (pageNum: number = 1) => {
@@ -91,22 +90,15 @@ const FriendRequestsScreen: React.FC = () => {
     };
 
 
-
-
     const getFriendRequests = async () => {
         const response: any = await GetAllFriendRequests(user?.user?._id);
         if (response.friendRequests) {
-            // console.log(response.friendRequests);
-
             setfriendrequests(response.friendRequests);
-
 
         } else {
             alert("Failed to get Friend Requests.");
         }
     };
-
-
 
 
 
@@ -118,15 +110,16 @@ const FriendRequestsScreen: React.FC = () => {
                 alert("Friend request accepted!");
                 getFriendRequests();
 
-                const acceptedFriend = friendrequests.find(req => req.sender._id === senderId);
+                /*
+                                const acceptedFriend = friendrequests.find(req => req.sender._id === senderId);
+                                if (acceptedFriend) {
+                                    setUser((prev: any) => ({
+                                        ...prev,
+                                        friends: [...prev.friends, acceptedFriend.sender],
+                                    }));
+                                }
+                                    */
 
-                if (acceptedFriend) {
-                    setUser((prev: any) => ({
-                        ...prev,
-                        friends: [...prev.friends, acceptedFriend.sender],
-                    }));
-                }
-                // console.log(user);
 
 
             } else {
@@ -139,8 +132,37 @@ const FriendRequestsScreen: React.FC = () => {
     };
 
 
-    useEffect(() => { getFriendRequests() }, [])
+    useEffect(() => {
+        getFriendRequests();
 
+        const ReceiveFriendRequest = (data: any) => {
+            setfriendrequests((prevRequests: any) => {
+
+                if (data.sender._id == user?.user._id) { return; }
+
+                const alreadyExists = prevRequests?.some((req: any) => req.sender._id === data.sender._id);
+                if (alreadyExists) return prevRequests;
+
+                return [...prevRequests, { sender: data.sender, status: "pending", },];
+            });
+        };
+
+
+        const CancelFriendRequest = (data: any) => {
+            setfriendrequests((prevRequests) =>
+                prevRequests?.filter((req) => req.sender._id !== data.sender._id)
+            );
+        };
+
+
+
+        socket.on("friendRequestReceived", ReceiveFriendRequest);
+        socket.on("friendRequestCanceled", CancelFriendRequest);
+        return () => {
+            socket.off("friendRequestReceived", ReceiveFriendRequest);
+            socket.off("friendRequestCanceled", CancelFriendRequest);
+        };
+    }, []);
 
 
 
@@ -148,7 +170,6 @@ const FriendRequestsScreen: React.FC = () => {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Search Friends</Text>
-
 
             <View style={styles.SearchContainer}>
 
@@ -164,20 +185,13 @@ const FriendRequestsScreen: React.FC = () => {
             </View>
 
 
-
-
-
-
             {loading || userLoading ? <ActivityIndicator size="large" color="blue" style={styles.loader} /> : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
-
-
 
             <FlatList
                 data={users}
                 keyExtractor={(item) => item._id}
                 renderItem={({ item }) => {
-
 
                     const isFriend = user?.friends?.some(friend => friend._id === item._id);
 
@@ -220,8 +234,6 @@ const FriendRequestsScreen: React.FC = () => {
 
 
 
-
-
             {friendrequests &&
                 <View>
                     <Text style={styles.title}>Friend Requests</Text>
@@ -229,7 +241,7 @@ const FriendRequestsScreen: React.FC = () => {
 
                     <FlatList
                         data={friendrequests}
-                        keyExtractor={(request) => request._id}
+                        keyExtractor={(req) => req._id}
                         renderItem={({ item }) => (
                             <View style={styles.requestCard}>
                                 {item.sender ? (
@@ -267,10 +279,6 @@ const FriendRequestsScreen: React.FC = () => {
 
                 </View>
             }
-
-
-
-
 
 
 
