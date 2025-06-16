@@ -2,6 +2,11 @@ import axios from "axios";
 import { Alert } from "react-native";
 import { BACKEND } from '../config'
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '@/nav';
+
+type NavigationProp = StackNavigationProp<RootStackParamList, 'DashBoard'>;
 
 export const sendOtp = async (email: string, phone: string): Promise<void> => {
     try {
@@ -32,12 +37,15 @@ export const loginOTP = async (phone: string): Promise<void> => {
         }
     } catch (error) {
         Alert.alert("Error", "Failed to send OTP.");
+        console.log(error);
+
     }
 };
 
 
-/*
+
 export const verifyOtp = async (phone: string, otp: string): Promise<Object | null> => {
+    //    const navigation = useNavigation<NavigationProp>();
     try {
         const response = await axios.post<{ token?: string; userId?: string }>(`${BACKEND}/verify-otp`, { phone, otp });
 
@@ -46,7 +54,9 @@ export const verifyOtp = async (phone: string, otp: string): Promise<Object | nu
 
             if (fetchedData) { AsyncStorage.setItem("user", fetchedData); }
 
-            // Alert.alert("Success", "OTP Verified! User logged in.");
+            Alert.alert("Success", "OTP Verified! User logged in.");
+
+
             return fetchedData;
         } else {
             Alert.alert("Error", "Something went wrong.");
@@ -57,25 +67,19 @@ export const verifyOtp = async (phone: string, otp: string): Promise<Object | nu
         return null;
     }
 };
-*/
 
 
+/*
 export const verifyOtp = async (phone: string, otp: string): Promise<Object | null> => {
     try {
 
-        var id;
 
-        if (phone == '4') { id = '67e2be9fac49d7152c5f3d03' }
-        else {
-            id = '67e2622ef1e6d2957c8d1d39'
-        }
+        if (phone == '9464751175') { phone = '67dfb7bfbf5e4df963e410f7' }
+        if (phone == '9464751176') { phone = '67e2622ef1e6d2957c8d1d39' }
+        if (phone == '9464757115') { phone = '67e2be76ac49d7152c5f3d01' }
+        if (phone == '4') { phone = '67e2be9fac49d7152c5f3d03' }
 
-        // 67e2622ef1e6d2957c8d1d39 Divaynshu 2 
-        // 67e2be76ac49d7152c5f3d01 Divyanshu 3
-        // 67e2be9fac49d7152c5f3d03 Divyanshu 4 --
-        // 67dfb7bfbf5e4df963e410f7 Divyanshu 5
-
-        const fetchedData: any = await fetchUser(id);
+        const fetchedData: any = await fetchUser(phone);
         if (fetchedData) { AsyncStorage.setItem("user", fetchedData); }
         // Alert.alert("Success", "OTP Verified! User logged in.");
         return fetchedData;
@@ -85,7 +89,7 @@ export const verifyOtp = async (phone: string, otp: string): Promise<Object | nu
         return null;
     }
 };
-
+*/
 
 
 export const refreshUser = async (userId: string): Promise<Object | null> => {

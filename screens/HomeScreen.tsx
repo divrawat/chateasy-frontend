@@ -1,29 +1,40 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import AuthLayout from './AuthLayout';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { RootStackParamList } from "@/nav";
+type NavigationProp = StackNavigationProp<RootStackParamList, "DashBoard">;
 
-const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
+
+const HomeScreen: React.FC<{ navigation: any }> = () => {
+
+    const navigation = useNavigation<NavigationProp>();
+
 
     return (
-        <AuthLayout>
-            <View style={styles.container}>
-                <Text style={styles.title}>Welcome To CheatEasy</Text>
 
-                <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => navigation.navigate('SignUp')}
-                >
-                    <Text style={styles.buttonText}>Sign Up</Text>
-                </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => navigation.navigate('Login')}
-                >
-                    <Text style={styles.buttonText}>Login</Text>
-                </TouchableOpacity>
+        <View style={styles.container}>
+            <View style={{ paddingBottom: 20 }}>
+                <Image source={require('../assets/images/logo.png')} style={{ width: 100, height: 100 }} />
             </View>
-        </AuthLayout>
+            <Text style={styles.title}>Welcome To CheatEasy</Text>
+
+            <TouchableOpacity
+                style={styles.button}
+                onPress={() => navigation.navigate('SignUp')}
+            >
+                <Text style={styles.buttonText}>Sign Up</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={styles.button}
+                onPress={() => navigation.replace('Login')}
+            >
+                <Text style={styles.buttonText}>Login</Text>
+            </TouchableOpacity>
+        </View>
+
     )
 
 }
@@ -41,7 +52,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     button: {
-        backgroundColor: '#007bff',
+        backgroundColor: '#36bc84',
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 10,

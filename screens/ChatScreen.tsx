@@ -31,7 +31,7 @@ const ChatScreen = ({ route }: { route: any }) => {
     const [showOptions, setShowOptions] = useState(false);
 
 
-    const { user, setUser } = useContext(UserContext);
+    const { user, setUser, setActiveChatFriendId } = useContext(UserContext);
     const { userId, userName, groupId } = route.params;
 
     const [selectedImage, setSelectedImage] = useState(null);
@@ -158,10 +158,28 @@ const ChatScreen = ({ route }: { route: any }) => {
     const hasMutedMe = friend?.mutedUsers?.includes(user?.user?._id);
 
 
+    function Count0() {
+        const friendId = userId;
+        setUser((prevUser) => {
+            if (!prevUser?.friends) return prevUser;
+
+            const updatedFriends = prevUser.friends.map(friend =>
+                friend._id === friendId
+                    ? { ...friend, unreadCount: 0 }
+                    : friend
+            );
+
+            return { ...prevUser, friends: updatedFriends };
+        });
+    }
+
+
+
     useEffect(() => {
 
         // markMessagesAsRead();
         fetchMessages2();
+        Count0();
 
         // if (!hasMutedMe) { fetchMessages2(); }
         // if (hasMutedMe) { fetchMessages() }
@@ -227,12 +245,17 @@ const ChatScreen = ({ route }: { route: any }) => {
                     ? prevUser.mutedUsers
                     : [...prevUser.mutedUsers, userTobeMuted];
 
+
+
                 return {
                     ...prevUser,
                     friends: updatedFriends,
                     mutedUsers: updatedMutedUsers,
                 };
+
+
             });
+
         };
 
 
@@ -790,9 +813,6 @@ const ChatScreen = ({ route }: { route: any }) => {
                                         )}
                                     </View>
                                 )}
-
-
-
 
 
 

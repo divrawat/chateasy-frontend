@@ -37,12 +37,6 @@ const DashBoard: React.FC = () => {
   }, [initialTab]);
 
 
-
-
-
-
-
-
   const [activeTab, setActiveTab] = useState<number>(0);
   const scrollViewRef = useRef<ScrollView>(null);
 

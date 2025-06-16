@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import socket from "../socket";
 
 interface Friend {
+    unreadCount: any;
     mutedUsers: any;
     groups: any;
     lastMessage: any;
@@ -43,12 +44,17 @@ interface UserContextType {
     user: User | null;
     setUser: React.Dispatch<React.SetStateAction<User | null>>;
     loading: boolean;
+    activeChatFriendId: string | null;
+    setActiveChatFriendId: React.Dispatch<React.SetStateAction<string | null>>;
+
 }
 
 export const UserContext = createContext<UserContextType>({
     user: null,
     setUser: () => { },
     loading: true,
+    activeChatFriendId: null,
+    setActiveChatFriendId: () => { },
 });
 
 interface UserProviderProps {
@@ -60,7 +66,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const [loading, setLoading] = useState<boolean>(true);
 
 
-
+    const [activeChatFriendId, setActiveChatFriendId] = useState<string | null>(null);
+    // console.log(user);
 
     useEffect(() => {
         if (!user) return;
@@ -184,13 +191,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
             setUser((prevUser) => {
                 if (!prevUser?.friends) return prevUser;
+                const isChatOpen = activeChatFriendId === message.sender;
 
                 const updatedFriends = prevUser.friends.map((friend) =>
                     friend._id === message.sender
+
                         ? {
                             ...friend,
                             lastMessage: displayMessage,
                             lastMessageTime: message.createdAt,
+                            unreadCount: (friend.unreadCount || 0) + 1,
+                            // unreadCount: isChatOpen ? 0 : (friend.unreadCount || 0) + 1
+
                         }
                         : friend
                 );
@@ -200,11 +212,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
         const handleGroupMessage = (message: any) => {
 
-            const isMember = user?.groups?.some(group =>
-                group.members?.some((member: { _id: any; }) => member._id === message.receiver)
-            );
+            // console.log(message);
 
-            if (!isMember) { return; }
+            // const isMember = user?.groups?.some(group =>
+            //     group.members?.some((member: { _id: any; }) => member._id === message.receiver)
+            // );
+            // console.log('000', isMember);
+
+
+            // if (!isMember) { return; }
 
             const messageContent = message.messageContent;
 
@@ -264,12 +280,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         };
 
 
-
-
-
-
-
-
         socket.on("receiveMessage", handleMessage);
         socket.on("addedToGroup", handleAddedToGroup);
         socket.on("RemovedFromGroup", handleRemovedFromGroup);
@@ -280,25 +290,22 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
         return () => {
 
+            socket.off("receiveMessage", handleMessage);
             socket.off("groupUpdated", handleGroupRemove);
             socket.off("addedToGroup", handleAddedToGroup);
             socket.off("RemovedFromGroup", handleRemovedFromGroup);
-            socket.off("receiveMessage", handleMessage);
             socket.off("receiveGroupMessage", handleGroupMessage);
             socket.off("friendRequestAccepted", FriendRequestAccepted);
         };
     }, [user]);
 
 
-
-
-
-
-
     useEffect(() => {
         const loadUser = async () => {
             try {
                 const storedUser = await AsyncStorage.getItem("user");
+
+
                 if (storedUser) {
                     setUser(JSON.parse(storedUser));
                 }
@@ -310,10 +317,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         };
 
         loadUser();
-    });
+    }, []);
 
 
-    const contextValue = useMemo(() => ({ user, setUser, loading }), [user, loading]);
+    const contextValue = useMemo(() => ({ user, setUser, loading, activeChatFriendId, setActiveChatFriendId }), [user, activeChatFriendId, loading]);
 
     return <UserContext.Provider value={contextValue}>{children}</UserContext.Provider>;
 };

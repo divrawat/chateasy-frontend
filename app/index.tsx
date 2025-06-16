@@ -13,16 +13,70 @@ import GroupInfoScreen from '@/screens/GroupInfo';
 import AddRemoveMembers from '@/screens/AddRemoveMembers';
 import MakeAdmins from '@/screens/MakeAdmins';
 import { View, Image, Text } from 'react-native';
+// import { registerForPushNotificationsAsync } from '../screens/Notification'
+import { useEffect, useContext, useRef } from 'react';
+import { UserContext } from "@/context/Usercontext";
+import axios from 'axios';
+import * as Notifications from 'expo-notifications';
+import { BACKEND } from '@/config';
+
+/*
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowList: true,
+  }),
+});
+*/
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const App: React.FC = () => {
 
+  const { user, setUser } = useContext(UserContext);
+
+
+  /*
+  useEffect(() => {
+    const setupPushNotifications = async () => {
+      const token = await registerForPushNotificationsAsync();
+      if (token && user?._id) {
+        await axios.post(`${BACKEND}/save-token`, { userId: user._id, expoPushToken: token, });
+      }
+    };
+    if (user?._id) { setupPushNotifications(); }
+  }, [user]);
+
+
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
+
+
+  useEffect(() => {
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification received in foreground:', notification);
+    });
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Notification tapped (even in background):', response);
+    });
+
+    return () => {
+      Notifications.removeNotificationSubscription(notificationListener.current);
+      Notifications.removeNotificationSubscription(responseListener.current);
+    };
+  }, []);
+
+*/
+
+
 
   return (
     <AuthLayout>
       <UserProvider>
-        <Stack.Navigator initialRouteName='Login'>
+        <Stack.Navigator >
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="SignUp" component={SignUpScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
